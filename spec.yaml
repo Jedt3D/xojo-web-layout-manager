@@ -1,0 +1,144 @@
+name: FlexLayoutManager
+description: A layout manager class that implements a subset of CSS Flexbox for UI controls.
+target_platform: Xojo Web (ported from Xojo Desktop)
+
+enums:
+  FlexDirection:
+    description: "Defines the main axis for laying out items."
+    values:
+      - name: Row
+        value: 0
+        description: "Items are laid out horizontally from left to right."
+      - name: Column
+        value: 1
+        description: "Items are laid out vertically from top to bottom."
+        
+  JustifyContent:
+    description: "Defines how the browser distributes space between and around content items along the main axis."
+    values:
+      - name: FlexStart
+        value: 0
+        description: "Items are packed toward the start of the flex-direction."
+      - name: FlexEnd
+        value: 1
+        description: "Items are packed toward the end of the flex-direction."
+      - name: Center
+        value: 2
+        description: "Items are centered along the line."
+      - name: SpaceBetween
+        value: 3
+        description: "Items are evenly distributed in the line; first item is on the start line, last item on the end line."
+      - name: SpaceAround
+        value: 4
+        description: "Items are evenly distributed in the line with equal space around them."
+      - name: Stretch
+        value: 5
+        description: "Items are stretched to fit the container along the main axis evenly (when FlexGrow is not applied)."
+        
+  AlignItems:
+    description: "Defines the default behavior for how flex items are laid out along the cross axis on the current line."
+    values:
+      - name: FlexStart
+        value: 0
+        description: "Items are placed at the start of the cross axis."
+      - name: FlexEnd
+        value: 1
+        description: "Items are placed at the end of the cross axis."
+      - name: Center
+        value: 2
+        description: "Items are centered in the cross axis."
+      - name: Stretch
+        value: 3
+        description: "Items are stretched to fill the container along the cross axis."
+
+properties:
+  public:
+    - name: Direction
+      type: FlexDirection
+      default: Row
+    - name: Justify
+      type: JustifyContent
+      default: FlexStart
+    - name: Align
+      type: AlignItems
+      default: FlexStart
+    - name: Gap
+      type: Integer
+      default: 0
+      description: "Spacing between items."
+    - name: PaddingLeft
+      type: Integer
+      default: 0
+    - name: PaddingTop
+      type: Integer
+      default: 0
+    - name: PaddingRight
+      type: Integer
+      default: 0
+    - name: PaddingBottom
+      type: Integer
+      default: 0
+  protected:
+    - name: ManagedControls
+      type: Array of WebUIControl (or equivalent base control class)
+      description: "List of controls added to this layout manager."
+    - name: FlexGrowMap
+      type: Dictionary
+      description: "Maps a control reference to its flex-grow factor (Double)."
+
+methods:
+  - name: AddControl
+    parameters:
+      - name: c
+        type: WebUIControl
+      - name: growFactor
+        type: Double
+        default: 0
+    description: "Adds a control to the layout manager and assigns its flex-grow factor."
+    
+  - name: SetFlexGrow
+    parameters:
+      - name: c
+        type: WebUIControl
+      - name: growFactor
+        type: Double
+    description: "Updates the flex-grow factor for an already added control."
+
+  - name: ApplyLayout
+    description: "Calculates positions and sizes for all visible managed controls and applies them."
+
+layout_algorithm:
+  step_1_gather_metrics:
+    - "Iterate through ManagedControls to collect visible controls."
+    - "Sum up the total FlexGrow factor from all visible controls."
+    - "Calculate `totalFixedSpace`: the sum of widths (for Row) or heights (for Column) of controls with a grow factor of 0."
+  
+  step_2_calculate_available_space:
+    - "`availableMainSpace` = Container Size (Width/Height) minus Padding (Left/Right or Top/Bottom)"
+    - "`availableCrossSpace` = Container Size (Height/Width) minus Padding (Top/Bottom or Left/Right)"
+    - "`totalGapSpace` = (Number of visible controls - 1) * Gap"
+    - "`remainingSpace` = `availableMainSpace` - `totalFixedSpace` - `totalGapSpace` (Clamped to minimum 0)"
+    
+  step_3_distribute_flex_grow:
+    - "If `totalFlexGrow` > 0, iterate through visible controls."
+    - "For controls with `growFactor` > 0, set their main axis size to: `Round((growFactor / totalFlexGrow) * remainingSpace)`"
+    - "Recalculate `totalUsedSpace` (sum of all control main-axis sizes + `totalGapSpace`)."
+    
+  step_4_apply_justify_content:
+    - "If `totalFlexGrow` == 0 (no items are growing):"
+    - "  - *Stretch*: Divide `availableMainSpace` - `totalGapSpace` equally among items and set their main axis size."
+    - "  - *FlexStart*: Start offset is top/left padding."
+    - "  - *FlexEnd*: Start offset is adjusted by (`availableMainSpace` - `totalUsedSpace`)."
+    - "  - *Center*: Start offset is adjusted by (`availableMainSpace` - `totalUsedSpace`) / 2."
+    - "  - *SpaceBetween*: Recalculate Gap as `Gap + ((availableMainSpace - totalUsedSpace) / numGaps)`."
+    - "  - *SpaceAround*: Recalculate Gap and initial offset based on total items."
+      
+  step_5_apply_positions_and_align_items:
+    - "Iterate through visible controls."
+    - "Determine Cross Axis position (`crossPos`) based on `AlignItems`:"
+    - "  - *FlexStart*: Place at top/left padding."
+    - "  - *FlexEnd*: Place at bottom/right container edge minus padding and control size."
+    - "  - *Center*: Place at middle of available cross space."
+    - "  - *Stretch*: Place at top/left padding and set cross-axis size to `availableCrossSpace`."
+    - "Apply `crossPos` and `currentMainX` (or `currentMainY`) to the control."
+    - "Advance the main axis position by the control's size + gap."

@@ -1,0 +1,43 @@
+# Xojo build directories
+Builds - */
+Builds*/
+
+# Xojo UI state files
+*.xojo_uistate
+
+# Xojo obsolete backup directories
+*.obsolete_*/
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+
+# Debug files
+*.debug
+*.trace
+
+# Compiled binaries (if any)
+*.exe
+*.app
+*.dll
+*.dylib
+*.so
+
+# Log files
+*.log

@@ -19,7 +19,6 @@ The main idea behind `WebFlexLayoutManager` is to allow Xojo Web UI controls to 
 ## Suggested New Features
 
 - **Flex Wrap**: Support wrapping controls to a new line/column when they exceed the available container space.
-- **Flex Basis**: Allow defining a base size for items before remaining space is distributed.
 - **Align Self**: Allow individual controls to override the container's `AlignItems` property.
 - **Nested Layouts Support**: Improve support and testing for placing `WebFlexLayoutManager` instances inside other `WebFlexLayoutManager` instances.
 - **Max/Min Constraints**: Respect minimum and maximum width/height constraints of managed controls during layout calculation.
@@ -41,3 +40,7 @@ The main idea behind `WebFlexLayoutManager` is to allow Xojo Web UI controls to 
 ### Flex Grow Precision
 **Problem**: Distributing fractional remaining space among multiple growing controls could leave empty gaps due to integer rounding.
 **Solution**: Implemented a floating-point calculation `Round((grow / totalFlexGrow) * remainingSpace)` to minimize rounding errors during distribution.
+
+### Flex Basis — Grow Factor 0 Size Corruption Fix
+**Problem**: When the first control in a container had `growFactor = 0` and subsequent controls had `growFactor > 0`, the layout rendered sizes incorrectly. This occurred because `AddControl()` calls `ApplyLayout()` after each addition. When only grow=0 controls existed, the `Justify = Stretch` path would inflate them to fill the entire container. On subsequent `AddControl()` calls that introduced grow>0 controls, the inflated size was read back as the "fixed" space, consuming all available room and leaving grow>0 controls with zero size. This bug manifested regardless of whether the container direction was Row or Column.
+**Solution**: Introduced a flex-basis mechanism (`BasisWidthMap` and `BasisHeightMap`) that stores each control's original Width and Height at the time it is added via `AddControl()`. The layout algorithm now uses these stored basis values instead of the live `c.Width`/`c.Height` when calculating fixed space for grow=0 controls. This prevents intermediate layout passes from corrupting control sizes.

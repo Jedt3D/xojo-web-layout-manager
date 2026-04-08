@@ -17,12 +17,14 @@ Inherits WebRectangle
 	#tag Method, Flags = &h0
 		Sub AddControl(c As WebUIControl, growFactor As Double = 0)
 		  If c = Nil Then Return
-		  
+
 		  System.DebugLog("FlexLayoutManager: Adding control " + c.Name + " with growFactor " + Str(growFactor))
-		  
+
 		  ManagedControls.Add(c)
 		  FlexGrowMap.Value(c) = growFactor
-		  
+		  BasisWidthMap.Value(c) = c.Width
+		  BasisHeightMap.Value(c) = c.Height
+
 		  ApplyLayout()
 		End Sub
 	#tag EndMethod
@@ -49,9 +51,9 @@ Inherits WebRectangle
 		      
 		      If grow = 0 Then
 		        If Direction = FlexDirection.Row Then
-		          totalFixedSpace = totalFixedSpace + c.Width
+		          totalFixedSpace = totalFixedSpace + BasisWidthMap.Value(c).IntegerValue
 		        Else
-		          totalFixedSpace = totalFixedSpace + c.Height
+		          totalFixedSpace = totalFixedSpace + BasisHeightMap.Value(c).IntegerValue
 		        End If
 		      End If
 		    End If
@@ -108,9 +110,9 @@ Inherits WebRectangle
 		        size = Round((grow / totalFlexGrow) * remainingSpace)
 		      Else
 		        If Direction = FlexDirection.Row Then
-		          size = c.Width
+		          size = BasisWidthMap.Value(c).IntegerValue
 		        Else
-		          size = c.Height
+		          size = BasisHeightMap.Value(c).IntegerValue
 		        End If
 		      End If
 		      
@@ -255,8 +257,10 @@ Inherits WebRectangle
 		Sub Constructor()
 		  // Calling the overridden superclass constructor.
 		  Super.Constructor
-		  
+
 		  FlexGrowMap = New Dictionary
+		  BasisWidthMap = New Dictionary
+		  BasisHeightMap = New Dictionary
 		End Sub
 	#tag EndMethod
 
@@ -264,6 +268,8 @@ Inherits WebRectangle
 		Sub RemoveAllControls()
 		  ManagedControls.RemoveAll()
 		  FlexGrowMap.Clear()
+		  BasisWidthMap.Clear()
+		  BasisHeightMap.Clear()
 		  ApplyLayout()
 		End Sub
 	#tag EndMethod
@@ -287,6 +293,14 @@ Inherits WebRectangle
 
 	#tag Property, Flags = &h0
 		Direction As FlexDirection = FlexDirection.Row
+	#tag EndProperty
+
+	#tag Property, Flags = &h1
+		Protected BasisHeightMap As Dictionary
+	#tag EndProperty
+
+	#tag Property, Flags = &h1
+		Protected BasisWidthMap As Dictionary
 	#tag EndProperty
 
 	#tag Property, Flags = &h1

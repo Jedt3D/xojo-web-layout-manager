@@ -18,6 +18,8 @@ Use this checklist to verify that the `FlexLayoutManager` Xojo Web port function
 - [ ] Items with `GrowFactor > 0` expand to fill remaining space along the main axis.
 - [ ] Multiple growing items divide remaining space proportionally (e.g., Factor 1 vs Factor 2 gives 1/3 and 2/3 of remaining space).
 - [ ] If remaining space is negative or 0, growing items size appropriately (do not become negatively sized).
+- [ ] **Mixed grow factors (first=0, rest>0)**: When the first control has `GrowFactor = 0` and subsequent controls have `GrowFactor > 0`, grow>0 controls correctly share remaining space and grow=0 controls keep their original size. Verify in both Row and Column directions.
+- [ ] **Mixed grow factors with Justify=Stretch**: Same scenario as above but with `Justify = Stretch`. The grow=0 control must retain its basis size, not the stretched size from an intermediate layout pass.
 
 ## 4. Justify Content (Main Axis Alignment)
 *Test these with `GrowFactor = 0` on all items, otherwise FlexGrow overrides JustifyContent.*

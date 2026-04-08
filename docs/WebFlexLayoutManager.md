@@ -55,6 +55,8 @@ classDiagram
         +PaddingBottom: Integer
         #ManagedControls: WebUIControl[]
         #FlexGrowMap: Dictionary
+        #BasisWidthMap: Dictionary
+        #BasisHeightMap: Dictionary
         +AddControl(c: WebUIControl, growFactor: Double)
         +SetFlexGrow(c: WebUIControl, growFactor: Double)
         +RemoveAllControls()
@@ -93,7 +95,7 @@ classDiagram
 
 ## Inheritance and Initialization
 
-The layout manager is built on top of `WebRectangle`, giving it visual bounds on the web page. When initialized, it creates a dictionary to track the flex-grow values of the controls it manages.
+The layout manager is built on top of `WebRectangle`, giving it visual bounds on the web page. When initialized, it creates dictionaries to track the flex-grow values and the original (basis) dimensions of the controls it manages.
 
 ```vb
 Protected Class WebFlexLayoutManager
@@ -102,8 +104,10 @@ Inherits WebRectangle
 	Sub Constructor()
 	  // Calling the overridden superclass constructor.
 	  Super.Constructor
-	  
+
 	  FlexGrowMap = New Dictionary
+	  BasisWidthMap = New Dictionary
+	  BasisHeightMap = New Dictionary
 	End Sub
 ```
 
@@ -147,17 +151,19 @@ The layout manager automatically recalculates when the browser window is resized
 
 ## Adding Controls to the Layout
 
-To have the manager position a control, use `AddControl()`. You provide the control reference and an optional `growFactor`. The `growFactor` dictates how much of the remaining space the control should consume proportionally. An `ApplyLayout()` is triggered immediately to position the new control.
+To have the manager position a control, use `AddControl()`. You provide the control reference and an optional `growFactor`. The `growFactor` dictates how much of the remaining space the control should consume proportionally. The control's current Width and Height are stored as its "flex basis" — the original size used for layout calculations when `growFactor = 0`. An `ApplyLayout()` is triggered immediately to position the new control.
 
 ```vb
 	Sub AddControl(c As WebUIControl, growFactor As Double = 0)
 	  If c = Nil Then Return
-	  
+
 	  System.DebugLog("FlexLayoutManager: Adding control " + c.Name + " with growFactor " + Str(growFactor))
-	  
+
 	  ManagedControls.Add(c)
 	  FlexGrowMap.Value(c) = growFactor
-	  
+	  BasisWidthMap.Value(c) = c.Width
+	  BasisHeightMap.Value(c) = c.Height
+
 	  ApplyLayout()
 	End Sub
 ```
@@ -182,7 +188,7 @@ flowchart TD
 ```
 
 ### Step 1: Gather Metrics
-The manager iterates over `ManagedControls`, skipping invisible ones. It calculates the total flex-grow factor across all controls, and sums the size (width or height, depending on direction) of controls that have a `growFactor` of 0.
+The manager iterates over `ManagedControls`, skipping invisible ones. It calculates the total flex-grow factor across all controls, and sums the **basis size** (stored original width or height, depending on direction) of controls that have a `growFactor` of 0. Using the stored basis rather than the live control dimensions prevents size corruption from intermediate layout passes.
 
 ```vb
   Var visibleControls() As WebUIControl
@@ -200,9 +206,9 @@ The manager iterates over `ManagedControls`, skipping invisible ones. It calcula
       
       If grow = 0 Then
         If Direction = FlexDirection.Row Then
-          totalFixedSpace = totalFixedSpace + c.Width
+          totalFixedSpace = totalFixedSpace + BasisWidthMap.Value(c).IntegerValue
         Else
-          totalFixedSpace = totalFixedSpace + c.Height
+          totalFixedSpace = totalFixedSpace + BasisHeightMap.Value(c).IntegerValue
         End If
       End If
     End If
@@ -235,7 +241,7 @@ The internal dimensions of the layout container are calculated by taking the tot
 ```
 
 ### Step 3: Distribute Flex Grow
-Controls with a `growFactor > 0` are resized to take a fraction of `remainingSpace` based on their factor relative to the `totalFlexGrow`.
+Controls with a `growFactor > 0` are resized to take a fraction of `remainingSpace` based on their factor relative to the `totalFlexGrow`. Controls with `growFactor = 0` use their stored basis size to ensure consistent layout regardless of intermediate layout passes.
 
 ```vb
   For Each c As WebUIControl In visibleControls
@@ -247,11 +253,11 @@ Controls with a `growFactor > 0` are resized to take a fraction of `remainingSpa
       // Distribute remaining space proportionally
       size = Round((grow / totalFlexGrow) * remainingSpace)
     Else
-      // Keep original size for fixed controls
+      // Use stored basis size for fixed controls
       If Direction = FlexDirection.Row Then
-        size = c.Width
+        size = BasisWidthMap.Value(c).IntegerValue
       Else
-        size = c.Height
+        size = BasisHeightMap.Value(c).IntegerValue
       End If
     End If
     
@@ -924,7 +930,24 @@ End Sub
 // issues, you can increase the timeout value (e.g., to 100 or 200ms)
 ```
 
-### Issue 5: Controls Overlapping or Misaligned
+### Issue 5: First Control with GrowFactor=0 Causes Incorrect Sizes (Fixed)
+```vb
+// PROBLEM: When first control has grow=0 and others have grow>0,
+// the grow>0 controls render with zero or incorrect size.
+// This was caused by AddControl() calling ApplyLayout() after each addition,
+// where the Stretch justify mode would inflate grow=0 controls during
+// intermediate passes, corrupting their size for subsequent calculations.
+
+// SOLUTION (v1.1.0): The layout manager now stores each control's original
+// dimensions as "flex basis" values when AddControl() is called.
+// These basis values are used instead of live c.Width/c.Height for
+// grow=0 size calculations, preventing intermediate inflation from
+// affecting the final layout.
+
+// This is now handled automatically — no user action required.
+```
+
+### Issue 6: Controls Overlapping or Misaligned
 ```vb
 // PROBLEM: Controls overlap each other or appear in wrong positions
 // CAUSE: Parent container size is not set correctly
